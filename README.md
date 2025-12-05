@@ -98,7 +98,7 @@ A comprehensive test preparation platform with student dashboard, admin panel, a
 
 1. **Navigate to frontend directory**:
    ```bash
-   cd testready-pk-smartprep-main
+   cd frontend
    ```
 
 2. **Install dependencies**:
