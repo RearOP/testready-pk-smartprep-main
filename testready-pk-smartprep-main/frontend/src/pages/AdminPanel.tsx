@@ -16,7 +16,8 @@ import {
 } from "lucide-react";
 import { apiClient, formatDate } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
+import Adminheader from "@/components/Adminheader";
 
 
 const AdminPanel = () => {
@@ -90,7 +91,7 @@ const AdminPanel = () => {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="border-b bg-background/95 backdrop-blur">
+      {/* <header className="border-b bg-background/95 backdrop-blur">
         <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center space-x-4">
             <h1 className="text-xl font-bold">Admin Panel</h1>
@@ -107,7 +108,8 @@ const AdminPanel = () => {
             </Button>
           </div>
         </div>
-      </header>
+      </header> */}
+      <Adminheader />
 
       <div className="container py-8">
         {/* Statistics Cards */}
@@ -229,10 +231,12 @@ const AdminPanel = () => {
         <Card className="mt-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Tests Management</CardTitle>
-            <Button>
-              <Plus className="h-4 w-4 mr-2" />
-              Create Test
-            </Button>
+            <Link to="/createTest">
+              <Button>
+                <Plus className="h-4 w-4 mr-2" />
+                Create Test
+              </Button>
+            </Link>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">

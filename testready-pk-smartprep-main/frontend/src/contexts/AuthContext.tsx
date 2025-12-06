@@ -1,10 +1,11 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { apiClient, User, RegisterData } from '@/lib/api';
 
+// Update the interface to return Promise<User>
 export interface AuthContextType {
   user: User | null;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: RegisterData) => Promise<void>;
+  login: (email: string, password: string) => Promise<User>;
+  register: (data: RegisterData) => Promise<User>;
   logout: () => Promise<void>;
   loading: boolean;
 }
@@ -52,11 +53,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     initAuth();
   }, []);
 
-  const login = async (email: string, password: string) => {
+  const login = async (email: string, password: string): Promise<User> => {
     try {
       const response = await apiClient.login(email, password);
       if (response.success) {
         setUser(response.data.user);
+        // Return the user data for the component to use
+        return response.data.user;
       } else {
         throw new Error(response.message || 'Login failed');
       }
@@ -65,11 +68,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     }
   };
 
-  const register = async (data: RegisterData) => {
+  const register = async (data: RegisterData): Promise<User> => {
     try {
       const response = await apiClient.register(data);
       if (response.success) {
         setUser(response.data.user);
+        // Return the user data
+        return response.data.user;
       } else {
         throw new Error(response.message || 'Registration failed');
       }
@@ -83,7 +88,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       // Always clear local storage first
       localStorage.removeItem('token');
       setUser(null);
-      
+
       // Then try API logout (fire and forget)
       apiClient.logout().catch(error => {
         console.log('API logout failed, but local logout succeeded:', error.message);

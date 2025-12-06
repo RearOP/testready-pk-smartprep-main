@@ -13,29 +13,29 @@ const Login = () => {
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
-  const { login, user } = useAuth();
+  const { login } = useAuth(); // Removed user from destructuring
   const navigate = useNavigate();
 
+  // Then in your Login component:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
     try {
-      await login(email, password);
-      setTimeout(() => {
-        if (user.role == "ADMIN") {
-          navigate("/admin");
-        } else {
-          navigate("/dashboard");
-        }
-      }, 100);
+      const loggedInUser = await login(email, password);
+
+      // Now we have the user data immediately
+      if (loggedInUser.role === "ADMIN") {
+        navigate("/admin");
+      } else {
+        navigate("/dashboard");
+      }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Login failed");
-    } finally {
       setLoading(false);
     }
-  };
+  };;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background flex items-center justify-center p-4">

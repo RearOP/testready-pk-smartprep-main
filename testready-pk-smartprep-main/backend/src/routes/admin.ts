@@ -1,3 +1,4 @@
+// backend/src/routes/admin.ts
 import { Router } from 'express';
 import { 
   getDashboardStats,
@@ -28,9 +29,9 @@ router.get('/students', getStudents);
 router.get('/students/export', exportStudents);
 router.post('/students/import', multer({ dest: 'uploads/' }).single('csv'), importStudents);
 
-// Test management
+// Test management - FIXED ROUTES
 router.get('/tests', getTests);
-router.post('/tests', createTestValidation, validateRequest, createTest);
+router.post('/tests', createTestValidation, validateRequest, createTest); // Changed from /Createtests to /tests
 router.put('/tests/:testId', updateTest);
 router.delete('/tests/:testId', deleteTest);
 
