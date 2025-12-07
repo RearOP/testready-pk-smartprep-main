@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,15 +17,23 @@ import {
     CheckCircle,
     XCircle,
     BookOpen,
-    FileSpreadsheet
+    FileSpreadsheet,
+    Info,
+    Check,
+    X
 } from "lucide-react";
 import { apiClient } from "@/lib/api";
 import * as XLSX from 'xlsx';
 import Adminheader from "@/components/Adminheader";
 
+interface Option {
+    id: string;
+    text: string;
+}
+
 interface Question {
     text: string;
-    options: string[]; // Changed from object array to string array
+    options: Option[];
     correctAnswer: string;
     marks: number;
     explanation?: string;
@@ -54,7 +62,12 @@ const CreateTest = () => {
     const [questions, setQuestions] = useState<Question[]>([
         {
             text: "",
-            options: ["", "", "", ""], // Changed to string array
+            options: [
+                { id: "A", text: "" },
+                { id: "B", text: "" },
+                { id: "C", text: "" },
+                { id: "D", text: "" }
+            ],
             correctAnswer: "",
             marks: 1,
             explanation: "",
@@ -65,6 +78,11 @@ const CreateTest = () => {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
     const [success, setSuccess] = useState("");
+
+    // Helper to generate option IDs
+    const generateOptionId = (index: number): string => {
+        return String.fromCharCode(65 + index); // A, B, C, ...
+    };
 
     // Manual Form Functions
     const handleManualInputChange = (field: string, value: string) => {
@@ -81,7 +99,10 @@ const CreateTest = () => {
         setQuestions(prev => prev.map((q, i) => {
             if (i === qIndex) {
                 const newOptions = [...q.options];
-                newOptions[optIndex] = value;
+                newOptions[optIndex] = {
+                    ...newOptions[optIndex],
+                    text: value
+                };
                 return { ...q, options: newOptions };
             }
             return q;
@@ -89,9 +110,17 @@ const CreateTest = () => {
     };
 
     const addQuestion = () => {
+        const lastQuestionOptions = questions[questions.length - 1]?.options || [];
+        const startIndex = lastQuestionOptions.length;
+
         setQuestions(prev => [...prev, {
             text: "",
-            options: ["", "", "", ""],
+            options: [
+                { id: generateOptionId(startIndex), text: "" },
+                { id: generateOptionId(startIndex + 1), text: "" },
+                { id: generateOptionId(startIndex + 2), text: "" },
+                { id: generateOptionId(startIndex + 3), text: "" }
+            ],
             correctAnswer: "",
             marks: 1,
             explanation: "",
@@ -107,9 +136,13 @@ const CreateTest = () => {
     const addOption = (qIndex: number) => {
         setQuestions(prev => prev.map((q, i) => {
             if (i === qIndex) {
+                const newIndex = q.options.length;
                 return {
                     ...q,
-                    options: [...q.options, ""]
+                    options: [
+                        ...q.options,
+                        { id: generateOptionId(newIndex), text: "" }
+                    ]
                 };
             }
             return q;
@@ -121,13 +154,15 @@ const CreateTest = () => {
             if (i === qIndex && q.options.length > 2) {
                 const newOptions = q.options.filter((_, oi) => oi !== optIndex);
                 // If removing the correct answer, clear it
-                const optionLetters = ["A", "B", "C", "D", "E", "F"];
-                const removedLetter = optionLetters[optIndex];
-                const newCorrectAnswer = q.correctAnswer === removedLetter ? "" : q.correctAnswer;
+                const removedOptionId = q.options[optIndex]?.id;
+                const newCorrectAnswer = q.correctAnswer === removedOptionId ? "" : q.correctAnswer;
 
                 return {
                     ...q,
-                    options: newOptions,
+                    options: newOptions.map((opt, idx) => ({
+                        ...opt,
+                        id: generateOptionId(idx) // Regenerate IDs to maintain order
+                    })),
                     correctAnswer: newCorrectAnswer
                 };
             }
@@ -142,6 +177,8 @@ const CreateTest = () => {
 
         setImportFile(file);
         setImportPreview([]);
+        setError("");
+        setSuccess("");
 
         const reader = new FileReader();
         reader.onload = (event) => {
@@ -152,104 +189,207 @@ const CreateTest = () => {
                 const worksheet = workbook.Sheets[sheetName];
                 const jsonData = XLSX.utils.sheet_to_json(worksheet) as ExcelQuestion[];
 
-                // Validate and format the data
+                if (jsonData.length === 0) {
+                    setError("Excel file is empty or has no valid data");
+                    return;
+                }
+
+                // Log the first few rows for debugging
+                console.log("Sample Excel data:", jsonData.slice(0, 3));
+
+                // Validate required fields
+                const validationErrors: string[] = [];
+                jsonData.forEach((row, index) => {
+                    const rowNum = index + 2; // +2 because Excel is 1-indexed and header is row 1
+
+                    // Check question
+                    const questionText = row.question?.toString()?.trim();
+                    if (!questionText) {
+                        validationErrors.push(`Row ${rowNum}: Question text is required`);
+                    }
+
+                    // Check at least 2 options are provided
+                    const option1 = row.option1?.toString()?.trim();
+                    const option2 = row.option2?.toString()?.trim();
+                    if (!option1 || !option2) {
+                        validationErrors.push(`Row ${rowNum}: At least option1 and option2 are required`);
+                    }
+
+                    // Check correct answer - accept multiple formats
+                    const correctAnswer = row.correctAnswer?.toString()?.trim();
+                    if (!correctAnswer) {
+                        validationErrors.push(`Row ${rowNum}: Correct answer is required`);
+                    } else {
+                        // Convert to string and uppercase for comparison
+                        const answerStr = correctAnswer.toString().toUpperCase();
+                        // Accept A, B, C, D or 1, 2, 3, 4
+                        const validAnswers = ['A', 'B', 'C', 'D', '1', '2', '3', '4'];
+                        if (!validAnswers.includes(answerStr)) {
+                            validationErrors.push(`Row ${rowNum}: Correct answer must be A, B, C, D or 1, 2, 3, 4. Found: "${correctAnswer}"`);
+                        }
+                    }
+
+                    // Check marks
+                    const marks = row.marks?.toString()?.trim();
+                    if (marks && isNaN(parseInt(marks))) {
+                        validationErrors.push(`Row ${rowNum}: Marks must be a number. Found: "${marks}"`);
+                    }
+                });
+
+                if (validationErrors.length > 0) {
+                    setError(`Excel validation failed:\n${validationErrors.join('\n')}`);
+                    return;
+                }
+
+                // Format the data with proper trimming
                 const formattedData = jsonData.map((row, index) => ({
-                    question: row.question?.toString() || `Question ${index + 1}`,
-                    option1: row.option1?.toString() || "",
-                    option2: row.option2?.toString() || "",
-                    option3: row.option3?.toString() || "",
-                    option4: row.option4?.toString() || "",
-                    correctAnswer: row.correctAnswer?.toString()?.toUpperCase() || "A",
-                    marks: row.marks?.toString() || "1",
-                    explanation: row.explanation?.toString() || "",
+                    question: (row.question?.toString() || "").trim(),
+                    option1: (row.option1?.toString() || "").trim(),
+                    option2: (row.option2?.toString() || "").trim(),
+                    option3: (row.option3?.toString() || "").trim(),
+                    option4: (row.option4?.toString() || "").trim(),
+                    correctAnswer: (row.correctAnswer?.toString() || "A").trim(),
+                    marks: row.marks?.toString()?.trim() || "1",
+                    explanation: row.explanation?.toString()?.trim() || "",
                 }));
 
                 setImportPreview(formattedData);
+                setSuccess(`Successfully loaded ${formattedData.length} questions from Excel file`);
+
             } catch (err) {
-                setError("Failed to parse Excel file. Please check the format.");
+                console.error("Excel parse error:", err);
+                setError(`Failed to parse Excel file. Please check the format and try again.
+
+Required columns:
+- question (text)
+- option1 (text)
+- option2 (text)
+- correctAnswer (A, B, C, D or 1, 2, 3, 4)
+- marks (number, optional, defaults to 1)
+- option3, option4, explanation (optional)
+
+Download the template for correct format.`);
             }
+        };
+        reader.onerror = () => {
+            setError("Failed to read file. Please try again.");
         };
         reader.readAsBinaryString(file);
     };
 
     const processImportedData = () => {
-        if (importPreview.length === 0) return;
+        if (importPreview.length === 0) {
+            setError("No data to import. Please upload an Excel file first.");
+            return;
+        }
+
+        setError("");
+        setSuccess("");
 
         const processedQuestions: Question[] = importPreview.map((row, index) => {
-            const options = [
+            // Collect all non-empty option texts
+            const optionTexts = [
                 row.option1,
                 row.option2,
                 row.option3,
                 row.option4,
             ].filter(opt => opt.trim() !== "");
 
+            // Create Option objects from texts
+            const options: Option[] = optionTexts.map((text, idx) => ({
+                id: generateOptionId(idx),
+                text: text
+            }));
+
+            // Parse and validate correct answer - handle multiple formats
+            let correctAnswer = row.correctAnswer.trim().toUpperCase();
+
+            // If answer is a number (1, 2, 3, 4), convert to letter (A, B, C, D)
+            if (['1', '2', '3', '4'].includes(correctAnswer)) {
+                const num = parseInt(correctAnswer);
+                correctAnswer = generateOptionId(num - 1); // 1 -> A, 2 -> B, etc.
+            }
+
+            // Validate correct answer is within available options
+            const validOptionIds = options.map(opt => opt.id);
+            if (!validOptionIds.includes(correctAnswer)) {
+                // If still invalid, default to first option
+                correctAnswer = options[0]?.id || "A";
+            }
+
+            // Parse marks
+            let marks = 1;
+            try {
+                marks = parseInt(row.marks);
+                if (isNaN(marks) || marks < 1) marks = 1;
+            } catch {
+                marks = 1;
+            }
+
             return {
                 text: row.question,
                 options,
-                correctAnswer: row.correctAnswer,
-                marks: parseInt(row.marks) || 1,
-                explanation: row.explanation,
+                correctAnswer,
+                marks,
+                explanation: row.explanation || "",
             };
         });
 
-        setQuestions(processedQuestions);
+        // Auto-fill title if empty - ADDED DEFAULT TITLE
+        if (!manualForm.title.trim()) {
+            const fileName = importFile ? importFile.name.replace(/\.[^/.]+$/, "") : "Imported";
+            setManualForm(prev => ({
+                ...prev,
+                title: `Test: ${fileName}`,
+                totalMarks: processedQuestions.reduce((sum, q) => sum + q.marks, 0).toString()
+            }));
+        } else {
+            // Update total marks
+            setManualForm(prev => ({
+                ...prev,
+                totalMarks: processedQuestions.reduce((sum, q) => sum + q.marks, 0).toString()
+            }));
+        }
 
-        // Calculate total marks
-        const totalMarks = processedQuestions.reduce((sum, q) => sum + q.marks, 0);
-        setManualForm(prev => ({ ...prev, totalMarks: totalMarks.toString() }));
+        // Auto-fill description if empty
+        if (!manualForm.description.trim() && importFile) {
+            setManualForm(prev => ({
+                ...prev,
+                description: `Imported from ${importFile.name} with ${processedQuestions.length} questions`
+            }));
+        }
+
+        setQuestions(processedQuestions);
 
         setActiveTab("manual");
         setImportFile(null);
         setImportPreview([]);
-        setSuccess(`${processedQuestions.length} questions imported successfully!`);
+        setSuccess(`${processedQuestions.length} questions imported successfully! 
+✓ Questions loaded in manual form
+✓ Total marks calculated: ${processedQuestions.reduce((sum, q) => sum + q.marks, 0)}
+${!manualForm.title.trim() ? '⚠ Please enter a test title before submitting' : '✓ Test title auto-filled'}
+Click "Create Test" when ready.`);
     };
 
-    // Validation
-    const validateForm = () => {
-        if (!manualForm.title.trim()) {
-            setError("Test title is required");
-            return false;
-        }
-
-        if (questions.length === 0) {
-            setError("At least one question is required");
-            return false;
-        }
-
-        for (let i = 0; i < questions.length; i++) {
-            const q = questions[i];
-            if (!q.text.trim()) {
-                setError(`Question ${i + 1}: Text is required`);
-                return false;
-            }
-
-            const validOptions = q.options.filter(opt => opt.trim() !== "");
-            if (validOptions.length < 2) {
-                setError(`Question ${i + 1}: At least 2 options are required`);
-                return false;
-            }
-
-            if (!q.correctAnswer) {
-                setError(`Question ${i + 1}: Correct answer is required`);
-                return false;
-            }
-
-            // Convert correct answer letter to index (A=0, B=1, etc.)
-            const correctIndex = q.correctAnswer.charCodeAt(0) - 65;
-            if (correctIndex < 0 || correctIndex >= q.options.length || !q.options[correctIndex]?.trim()) {
-                setError(`Question ${i + 1}: Selected correct answer is not valid`);
-                return false;
-            }
-        }
-
-        return true;
-    };
-
-    // Submit
+    // Also update the handleSubmit function to show specific validation errors:
     const handleSubmit = async () => {
         setError("");
         setSuccess("");
 
+        // First check if title is filled
+        if (!manualForm.title.trim()) {
+            setError("Test title is required. Please enter a title for your test.");
+            return;
+        }
+
+        // Check time limit
+        const timeLimit = parseInt(manualForm.timeLimit);
+        if (isNaN(timeLimit) || timeLimit < 60) {
+            setError("Time limit must be at least 60 seconds");
+            return;
+        }
+
+        // Then run full validation
         if (!validateForm()) return;
 
         setLoading(true);
@@ -264,7 +404,7 @@ const CreateTest = () => {
                 timeLimit: parseInt(manualForm.timeLimit),
                 questions: questions.map(q => ({
                     text: q.text.trim(),
-                    options: q.options.filter(opt => opt.trim() !== ""), // Filter out empty options
+                    options: q.options.filter(opt => opt.text.trim() !== ""), // Filter out empty options
                     correctAnswer: q.correctAnswer,
                     marks: q.marks,
                     explanation: q.explanation?.trim() || undefined,
@@ -274,7 +414,7 @@ const CreateTest = () => {
             if (response.success) {
                 setSuccess("Test created successfully! Redirecting...");
                 setTimeout(() => {
-                    navigate("/admin/tests");
+                    navigate("/admin");
                 }, 2000);
             } else {
                 setError(response.message || "Failed to create test");
@@ -286,41 +426,206 @@ const CreateTest = () => {
         }
     };
 
+    // Validation
+    const validateForm = () => {
+        setError("");
+
+        // Check title
+        if (!manualForm.title.trim()) {
+            setError("Test title is required");
+            return false;
+        }
+
+        // Check time limit
+        const timeLimit = parseInt(manualForm.timeLimit);
+        if (isNaN(timeLimit) || timeLimit < 60) {
+            setError("Time limit must be at least 60 seconds");
+            return false;
+        }
+
+        // Check questions
+        if (questions.length === 0) {
+            setError("At least one question is required");
+            return false;
+        }
+
+        for (let i = 0; i < questions.length; i++) {
+            const q = questions[i];
+
+            // Check question text
+            if (!q.text.trim()) {
+                setError(`Question ${i + 1}: Text is required`);
+                return false;
+            }
+
+            // Check options
+            const validOptions = q.options.filter(opt => opt.text.trim() !== "");
+            if (validOptions.length < 2) {
+                setError(`Question ${i + 1}: At least 2 options are required`);
+                return false;
+            }
+
+            // Check correct answer
+            if (!q.correctAnswer.trim()) {
+                setError(`Question ${i + 1}: Correct answer is required`);
+                return false;
+            }
+
+            // Validate correct answer exists in options
+            const correctOption = q.options.find(opt => opt.id === q.correctAnswer);
+            if (!correctOption || !correctOption.text.trim()) {
+                setError(`Question ${i + 1}: Selected correct answer is not valid`);
+                return false;
+            }
+
+            // Check marks
+            if (q.marks < 1) {
+                setError(`Question ${i + 1}: Marks must be at least 1`);
+                return false;
+            }
+        }
+
+        return true;
+    };
+
+    // Submit
+    // const handleSubmit = async () => {
+    //     setError("");
+    //     setSuccess("");
+
+    //     if (!validateForm()) return;
+
+    //     setLoading(true);
+
+    //     try {
+    //         const totalMarks = questions.reduce((sum, q) => sum + q.marks, 0);
+
+    //         const response = await apiClient.createTest({
+    //             title: manualForm.title.trim(),
+    //             description: manualForm.description.trim() || undefined,
+    //             totalMarks: parseInt(manualForm.totalMarks) || totalMarks,
+    //             timeLimit: parseInt(manualForm.timeLimit),
+    //             questions: questions.map(q => ({
+    //                 text: q.text.trim(),
+    //                 options: q.options.filter(opt => opt.text.trim() !== ""), // Filter out empty options
+    //                 correctAnswer: q.correctAnswer,
+    //                 marks: q.marks,
+    //                 explanation: q.explanation?.trim() || undefined,
+    //             })),
+    //         });
+
+    //         if (response.success) {
+    //             setSuccess("Test created successfully! Redirecting...");
+    //             setTimeout(() => {
+    //                 navigate("/admin");
+    //             }, 2000);
+    //         } else {
+    //             setError(response.message || "Failed to create test");
+    //         }
+    //     } catch (err: any) {
+    //         setError(err.message || "Failed to create test");
+    //     } finally {
+    //         setLoading(false);
+    //     }
+    // };
+
     // Download Template
     const downloadTemplate = () => {
         const templateData = [
             {
-                question: "What is the capital of Pakistan?",
-                option1: "Lahore",
-                option2: "Karachi",
-                option3: "Islamabad",
-                option4: "Peshawar",
-                correctAnswer: "C",
+                question: "What is 2 + 2?",
+                option1: "3",
+                option2: "4",
+                option3: "5",
+                option4: "6",
+                correctAnswer: "B", // Can also use "2"
                 marks: "1",
-                explanation: "Islamabad has been the capital since 1963."
+                explanation: "Basic arithmetic: 2 + 2 = 4"
             },
             {
-                question: "Which is the largest ocean?",
-                option1: "Atlantic Ocean",
-                option2: "Indian Ocean",
-                option3: "Arctic Ocean",
-                option4: "Pacific Ocean",
-                correctAnswer: "D",
+                question: "What is the capital of France?",
+                option1: "London",
+                option2: "Berlin",
+                option3: "Paris",
+                option4: "Madrid",
+                correctAnswer: "3", // Can also use "C"
+                marks: "2",
+                explanation: "Paris has been the capital of France since 508 AD"
+            },
+            {
+                question: "Which planet is known as the Red Planet?",
+                option1: "Earth",
+                option2: "Mars",
+                option3: "Jupiter",
+                option4: "Saturn",
+                correctAnswer: "B", // Can also use "2"
                 marks: "1",
-                explanation: "The Pacific Ocean covers about 46% of Earth's water surface."
+                explanation: "Mars appears red due to iron oxide (rust) on its surface"
             }
         ];
 
         const ws = XLSX.utils.json_to_sheet(templateData);
+
+        // Add column widths for better readability
+        const wscols = [
+            { wch: 30 }, // question
+            { wch: 15 }, // option1
+            { wch: 15 }, // option2
+            { wch: 15 }, // option3
+            { wch: 15 }, // option4
+            { wch: 12 }, // correctAnswer
+            { wch: 8 },  // marks
+            { wch: 25 }  // explanation
+        ];
+        ws['!cols'] = wscols;
+
         const wb = XLSX.utils.book_new();
         XLSX.utils.book_append_sheet(wb, ws, "Questions");
-        XLSX.writeFile(wb, "test-template.xlsx");
+
+        // Create instructions sheet
+        const instructions = [
+            ["IMPORTANT: DO NOT CHANGE COLUMN HEADERS"],
+            [""],
+            ["REQUIRED COLUMNS (must have data):"],
+            ["- question: The question text"],
+            ["- option1: First option (must have value)"],
+            ["- option2: Second option (must have value)"],
+            ["- correctAnswer: Correct answer letter or number"],
+            [""],
+            ["OPTIONAL COLUMNS (can be empty):"],
+            ["- option3: Third option"],
+            ["- option4: Fourth option"],
+            ["- marks: Marks per question (default: 1)"],
+            ["- explanation: Explanation for correct answer"],
+            [""],
+            ["CORRECT ANSWER FORMAT:"],
+            ["- Letters: A, B, C, D (uppercase or lowercase)"],
+            ["- Numbers: 1, 2, 3, 4 (1 = A, 2 = B, etc.)"],
+            ["- Example: 'B' or '2' both mean option2 is correct"],
+            [""],
+            ["MINIMUM REQUIREMENTS:"],
+            ["- At least 2 options must have values (option1 & option2)"],
+            ["- Question text cannot be empty"],
+            ["- Correct answer must be provided"],
+            [""],
+            ["TIPS:"],
+            ["- You can have up to 6 options per question"],
+            ["- Empty options will be ignored"],
+            ["- Save as .xlsx or .xls format"],
+            ["- Maximum file size: 10MB"],
+        ];
+
+        const ws2 = XLSX.utils.aoa_to_sheet(instructions);
+        ws2['!cols'] = [{ wch: 80 }];
+        XLSX.utils.book_append_sheet(wb, ws2, "Instructions");
+
+        XLSX.writeFile(wb, "test-question-template.xlsx");
     };
 
-    // Get option letter from index
-    const getOptionLetter = (index: number): string => {
-        return String.fromCharCode(65 + index); // A, B, C, ...
-    };
+    useEffect(() => {
+        // Clear errors when switching tabs
+        setError("");
+    }, [activeTab]);
 
     return (
         <div className="min-h-screen bg-gradient-to-br from-background via-secondary/20 to-background">
@@ -334,7 +639,7 @@ const CreateTest = () => {
                             Create a new test manually or import from Excel
                         </p>
                     </div>
-                    <Button variant="outline" onClick={() => navigate("/admin/tests")}>
+                    <Button variant="outline" onClick={() => navigate("/admin")}>
                         <BookOpen className="h-4 w-4 mr-2" />
                         View All Tests
                     </Button>
@@ -343,7 +648,7 @@ const CreateTest = () => {
                 {error && (
                     <Alert className="mb-6" variant="destructive">
                         <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{error}</AlertDescription>
+                        <AlertDescription className="whitespace-pre-line">{error}</AlertDescription>
                     </Alert>
                 )}
 
@@ -377,14 +682,27 @@ const CreateTest = () => {
                             <CardContent className="space-y-6">
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                     <div className="space-y-2">
-                                        <Label htmlFor="title">Test Title *</Label>
-                                        <Input
+                                        <div className="flex items-center justify-between">
+                                            <Label htmlFor="title">Test Title *</Label>
+                                            {!manualForm.title.trim() && (
+                                                <span className="text-xs text-amber-600 bg-amber-50 px-2 py-1 rounded">
+                                                    Required before submitting
+                                                </span>
+                                            )}
+                                        </div>
+                                        <Input  
                                             id="title"
                                             value={manualForm.title}
                                             onChange={(e) => handleManualInputChange("title", e.target.value)}
                                             placeholder="e.g., Biology Chapter 1 Quiz"
                                             required
+                                            className={!manualForm.title.trim() ? "border-amber-500" : ""}
                                         />
+                                        {!manualForm.title.trim() && (
+                                            <p className="text-xs text-amber-600">
+                                                Please enter a title for your test
+                                            </p>
+                                        )}
                                     </div>
 
                                     <div className="space-y-2">
@@ -480,15 +798,15 @@ const CreateTest = () => {
                                                         <Label>Options * (At least 2 required)</Label>
                                                         <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
                                                             {question.options.map((option, optIndex) => (
-                                                                <div key={optIndex} className="flex items-center space-x-2">
+                                                                <div key={option.id} className="flex items-center space-x-2">
                                                                     <div className="flex items-center space-x-2 flex-1">
-                                                                        <span className={`font-medium w-6 ${question.correctAnswer === getOptionLetter(optIndex) ? 'text-primary font-bold' : ''}`}>
-                                                                            {getOptionLetter(optIndex)}.
+                                                                        <span className={`font-medium w-6 ${question.correctAnswer === option.id ? 'text-primary font-bold' : ''}`}>
+                                                                            {option.id}.
                                                                         </span>
                                                                         <Input
-                                                                            value={option}
+                                                                            value={option.text}
                                                                             onChange={(e) => handleOptionChange(qIndex, optIndex, e.target.value)}
-                                                                            placeholder={`Option ${getOptionLetter(optIndex)}`}
+                                                                            placeholder={`Option ${option.id}`}
                                                                             className="flex-1"
                                                                         />
                                                                     </div>
@@ -522,18 +840,20 @@ const CreateTest = () => {
                                                         <div className="space-y-2">
                                                             <Label>Correct Answer *</Label>
                                                             <div className="flex flex-wrap gap-2">
-                                                                {question.options.map((option, optIndex) => (
-                                                                    <Button
-                                                                        key={optIndex}
-                                                                        type="button"
-                                                                        variant={question.correctAnswer === getOptionLetter(optIndex) ? "default" : option.trim() ? "outline" : "ghost"}
-                                                                        size="sm"
-                                                                        onClick={() => handleQuestionChange(qIndex, "correctAnswer", getOptionLetter(optIndex))}
-                                                                        disabled={!option.trim()}
-                                                                    >
-                                                                        {getOptionLetter(optIndex)}
-                                                                    </Button>
-                                                                ))}
+                                                                {question.options
+                                                                    .filter(opt => opt.text.trim() !== "")
+                                                                    .map((option, optIndex) => (
+                                                                        <Button
+                                                                            key={option.id}
+                                                                            type="button"
+                                                                            variant={question.correctAnswer === option.id ? "default" : "outline"}
+                                                                            size="sm"
+                                                                            onClick={() => handleQuestionChange(qIndex, "correctAnswer", option.id)}
+                                                                            disabled={!option.text.trim()}
+                                                                        >
+                                                                            {option.id}
+                                                                        </Button>
+                                                                    ))}
                                                             </div>
                                                             <p className="text-xs text-muted-foreground">
                                                                 Select the correct option letter
@@ -579,6 +899,152 @@ const CreateTest = () => {
                                 </CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-6">
+                                {/* Instructions Card */}
+                                <Card>
+                                    <CardHeader className="bg-primary/5 pb-3">
+                                        <CardTitle className="text-lg flex items-center gap-2">
+                                            <Info className="h-5 w-5" />
+                                            Excel File Instructions
+                                        </CardTitle>
+                                        <CardDescription>
+                                            Follow these guidelines to prepare your Excel file
+                                        </CardDescription>
+                                    </CardHeader>
+                                    <CardContent className="pt-4">
+                                        <div className="space-y-4">
+                                            <div>
+                                                <h4 className="font-semibold mb-2 flex items-center gap-2">
+                                                    <Check className="h-4 w-4 text-green-600" />
+                                                    Required Columns (must have these exact headers):
+                                                </h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-sm">
+                                                    <div className="bg-primary/10 p-2 rounded border border-primary/20">
+                                                        <span className="font-medium">question</span>
+                                                        <p className="text-xs text-muted-foreground">Question text</p>
+                                                    </div>
+                                                    <div className="bg-primary/10 p-2 rounded border border-primary/20">
+                                                        <span className="font-medium">option1</span>
+                                                        <p className="text-xs text-muted-foreground">First option</p>
+                                                    </div>
+                                                    <div className="bg-primary/10 p-2 rounded border border-primary/20">
+                                                        <span className="font-medium">option2</span>
+                                                        <p className="text-xs text-muted-foreground">Second option</p>
+                                                    </div>
+                                                    <div className="bg-primary/10 p-2 rounded border border-primary/20">
+                                                        <span className="font-medium">correctAnswer</span>
+                                                        <p className="text-xs text-muted-foreground">Correct answer</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div>
+                                                <h4 className="font-semibold mb-2">📊 Optional Columns:</h4>
+                                                <div className="grid grid-cols-2 md:grid-cols-3 gap-2 text-sm">
+                                                    <div className="bg-secondary/50 p-2 rounded">
+                                                        <span className="font-medium">option3</span>
+                                                        <p className="text-xs text-muted-foreground">Third option</p>
+                                                    </div>
+                                                    <div className="bg-secondary/50 p-2 rounded">
+                                                        <span className="font-medium">option4</span>
+                                                        <p className="text-xs text-muted-foreground">Fourth option</p>
+                                                    </div>
+                                                    <div className="bg-secondary/50 p-2 rounded">
+                                                        <span className="font-medium">explanation</span>
+                                                        <p className="text-xs text-muted-foreground">Answer explanation</p>
+                                                    </div>
+                                                    <div className="bg-secondary/50 p-2 rounded">
+                                                        <span className="font-medium">marks</span>
+                                                        <p className="text-xs text-muted-foreground">Marks per question (default: 1)</p>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold">🎯 Correct Answer Format:</h4>
+                                                <div className="grid grid-cols-2 gap-3 text-sm">
+                                                    <div className="border-l-4 border-green-500 pl-3">
+                                                        <p className="font-medium flex items-center gap-2">
+                                                            <Check className="h-4 w-4 text-green-600" />
+                                                            Acceptable formats:
+                                                        </p>
+                                                        <ul className="list-disc pl-4 mt-1 space-y-1">
+                                                            <li>Letters: <strong>A</strong>, <strong>B</strong>, <strong>C</strong>, <strong>D</strong></li>
+                                                            <li>Numbers: <strong>1</strong>, <strong>2</strong>, <strong>3</strong>, <strong>4</strong></li>
+                                                            <li>Uppercase or lowercase</li>
+                                                        </ul>
+                                                    </div>
+                                                    <div className="border-l-4 border-red-500 pl-3">
+                                                        <p className="font-medium flex items-center gap-2">
+                                                            <X className="h-4 w-4 text-red-600" />
+                                                            Not acceptable:
+                                                        </p>
+                                                        <ul className="list-disc pl-4 mt-1 space-y-1">
+                                                            <li>Full words like "Option A"</li>
+                                                            <li>Special characters</li>
+                                                            <li>Numbers outside 1-4</li>
+                                                        </ul>
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold">📋 Example Data:</h4>
+                                                <div className="bg-secondary/30 p-3 rounded text-sm overflow-x-auto">
+                                                    <table className="min-w-full border-collapse">
+                                                        <thead className="bg-secondary/50">
+                                                            <tr>
+                                                                <th className="border p-2 text-left">question</th>
+                                                                <th className="border p-2 text-left">option1</th>
+                                                                <th className="border p-2 text-left">option2</th>
+                                                                <th className="border p-2 text-left">option3</th>
+                                                                <th className="border p-2 text-left">option4</th>
+                                                                <th className="border p-2 text-left">correctAnswer</th>
+                                                                <th className="border p-2 text-left">marks</th>
+                                                                <th className="border p-2 text-left">explanation</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td className="border p-2">What is 2 + 2?</td>
+                                                                <td className="border p-2">3</td>
+                                                                <td className="border p-2">4</td>
+                                                                <td className="border p-2">5</td>
+                                                                <td className="border p-2">6</td>
+                                                                <td className="border p-2 font-bold">B</td>
+                                                                <td className="border p-2">1</td>
+                                                                <td className="border p-2">Basic arithmetic</td>
+                                                            </tr>
+                                                            <tr>
+                                                                <td className="border p-2">Capital of France?</td>
+                                                                <td className="border p-2">London</td>
+                                                                <td className="border p-2">Berlin</td>
+                                                                <td className="border p-2">Paris</td>
+                                                                <td className="border p-2">Madrid</td>
+                                                                <td className="border p-2 font-bold">3</td>
+                                                                <td className="border p-2">2</td>
+                                                                <td className="border p-2">Paris is the capital</td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            </div>
+
+                                            <div className="space-y-2">
+                                                <h4 className="font-semibold">⚡ Quick Tips:</h4>
+                                                <ul className="list-disc pl-5 space-y-1 text-sm">
+                                                    <li>Save your file as <code className="bg-secondary px-1 rounded">.xlsx</code> or <code className="bg-secondary px-1 rounded">.xls</code></li>
+                                                    <li>Headers must be in the first row</li>
+                                                    <li>At least 2 options are required (option1 & option2)</li>
+                                                    <li>Empty rows will be ignored</li>
+                                                    <li>Maximum 10MB file size</li>
+                                                    <li>Use the download template button for perfect format</li>
+                                                </ul>
+                                            </div>
+                                        </div>
+                                    </CardContent>
+                                </Card>
+
+                                {/* File Upload Section */}
                                 <div className="border-2 border-dashed border-border rounded-lg p-8 text-center">
                                     <Upload className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
                                     <Label htmlFor="file-upload" className="cursor-pointer">
@@ -608,6 +1074,7 @@ const CreateTest = () => {
                                     )}
                                 </div>
 
+                                {/* Actions */}
                                 <div className="flex space-x-3">
                                     <Button
                                         variant="outline"
@@ -623,11 +1090,12 @@ const CreateTest = () => {
                                             className="flex-1"
                                         >
                                             <CheckCircle className="h-4 w-4 mr-2" />
-                                            Process {importPreview.length} Questions
+                                            Import {importPreview.length} Questions
                                         </Button>
                                     )}
                                 </div>
 
+                                {/* Preview Section */}
                                 {importPreview.length > 0 && (
                                     <div className="border rounded-lg">
                                         <div className="bg-secondary px-4 py-2 border-b">
@@ -637,6 +1105,9 @@ const CreateTest = () => {
                                                     {importPreview.reduce((sum, q) => sum + (parseInt(q.marks) || 1), 0)} total marks
                                                 </span>
                                             </div>
+                                            <p className="text-xs text-muted-foreground mt-1">
+                                                Click "Import Questions" to transfer these questions to the manual form
+                                            </p>
                                         </div>
                                         <div className="overflow-x-auto">
                                             <table className="w-full">
@@ -658,16 +1129,16 @@ const CreateTest = () => {
                                                             </td>
                                                             <td className="p-3">
                                                                 <div className="text-xs space-y-1">
-                                                                    <div className={`${row.correctAnswer === 'A' ? 'text-primary font-medium' : ''}`}>
+                                                                    <div className={`${['A', '1'].includes(row.correctAnswer.toUpperCase()) ? 'text-primary font-medium' : ''}`}>
                                                                         A. {row.option1 || <span className="text-muted-foreground">Empty</span>}
                                                                     </div>
-                                                                    <div className={`${row.correctAnswer === 'B' ? 'text-primary font-medium' : ''}`}>
+                                                                    <div className={`${['B', '2'].includes(row.correctAnswer.toUpperCase()) ? 'text-primary font-medium' : ''}`}>
                                                                         B. {row.option2 || <span className="text-muted-foreground">Empty</span>}
                                                                     </div>
-                                                                    <div className={`${row.correctAnswer === 'C' ? 'text-primary font-medium' : ''}`}>
+                                                                    <div className={`${['C', '3'].includes(row.correctAnswer.toUpperCase()) ? 'text-primary font-medium' : ''}`}>
                                                                         C. {row.option3 || <span className="text-muted-foreground">Empty</span>}
                                                                     </div>
-                                                                    <div className={`${row.correctAnswer === 'D' ? 'text-primary font-medium' : ''}`}>
+                                                                    <div className={`${['D', '4'].includes(row.correctAnswer.toUpperCase()) ? 'text-primary font-medium' : ''}`}>
                                                                         D. {row.option4 || <span className="text-muted-foreground">Empty</span>}
                                                                     </div>
                                                                 </div>

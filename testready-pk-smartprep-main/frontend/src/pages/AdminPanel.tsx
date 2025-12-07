@@ -2,17 +2,13 @@ import { useState, useEffect } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import {
   Users,
   BookOpen,
   BarChart3,
   TrendingUp,
-  Download,
-  Upload,
   Plus,
-  Settings,
-  LogOut
+  Settings
 } from "lucide-react";
 import { apiClient, formatDate } from "@/lib/api";
 import { useAuth } from "@/contexts/AuthContext";
@@ -59,21 +55,7 @@ const AdminPanel = () => {
     fetchData();
   }, []);
 
-  const handleExportStudents = async () => {
-    try {
-      const blob = await apiClient.exportStudents();
-      const url = window.URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = 'students.csv';
-      document.body.appendChild(a);
-      a.click();
-      window.URL.revokeObjectURL(url);
-      document.body.removeChild(a);
-    } catch (error) {
-      console.error('Export failed:', error);
-    }
-  };
+ 
 
   if (loading) {
     return (
@@ -83,32 +65,10 @@ const AdminPanel = () => {
     );
   }
 
-  const handleLogout = () => {
-    logout();
-    navigate("/");
-  };
 
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      {/* <header className="border-b bg-background/95 backdrop-blur">
-        <div className="container flex h-16 items-center justify-between">
-          <div className="flex items-center space-x-4">
-            <h1 className="text-xl font-bold">Admin Panel</h1>
-          </div>
-
-          <div className="flex items-center space-x-4">
-            <Button variant="outline" size="sm" onClick={handleExportStudents}>
-              <Download className="h-4 w-4 mr-2" />
-              Export Students
-            </Button>
-            <Button variant="outline" size="sm" onClick={handleLogout}>
-              <LogOut className="h-4 w-4 mr-2" />
-              Logout
-            </Button>
-          </div>
-        </div>
-      </header> */}
       <Adminheader />
 
       <div className="container py-8">

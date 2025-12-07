@@ -203,6 +203,7 @@ export const getStudents = async (req: Request, res: Response): Promise<Response
 };
 
 // Create test
+// In your backend controller
 export const createTest = async (req: Request, res: Response): Promise<Response> => {
   try {
     const errors = validationResult(req);
@@ -223,13 +224,32 @@ export const createTest = async (req: Request, res: Response): Promise<Response>
         totalMarks: parseInt(totalMarks),
         timeLimit: parseInt(timeLimit),
         questions: {
-          create: questions.map((q: any) => ({
-            text: q.text,
-            options: q.options,
-            correctAnswer: q.correctAnswer,
-            marks: parseInt(q.marks) || 1,
-            explanation: q.explanation
-          }))
+          create: questions.map((q: any) => {
+            // Convert string array to object array if needed
+            let options;
+            if (Array.isArray(q.options) && q.options.length > 0) {
+              if (typeof q.options[0] === 'string') {
+                // Convert ["Option A", "Option B"] to [{id: "A", text: "Option A"}, ...]
+                options = q.options.map((text: string, index: number) => ({
+                  id: String.fromCharCode(65 + index), // A, B, C, D...
+                  text: text
+                }));
+              } else {
+                // Already objects
+                options = q.options;
+              }
+            } else {
+              options = [];
+            }
+
+            return {
+              text: q.text,
+              options,
+              correctAnswer: q.correctAnswer,
+              marks: parseInt(q.marks) || 1,
+              explanation: q.explanation
+            };
+          })
         }
       },
       include: {
