@@ -36,7 +36,7 @@ const AdminPanel = () => {
 
         if (statsResponse.success) {
           setStats(statsResponse.data);
-          console.log(statsResponse.data);
+          // console.log(statsResponse.data);
           
         }
 

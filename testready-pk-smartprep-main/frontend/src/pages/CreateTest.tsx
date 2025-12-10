@@ -195,7 +195,7 @@ const CreateTest = () => {
                 }
 
                 // Log the first few rows for debugging
-                console.log("Sample Excel data:", jsonData.slice(0, 3));
+                // console.log("Sample Excel data:", jsonData.slice(0, 3));
 
                 // Validate required fields
                 const validationErrors: string[] = [];
@@ -690,7 +690,7 @@ Click "Create Test" when ready.`);
                                                 </span>
                                             )}
                                         </div>
-                                        <Input  
+                                        <Input
                                             id="title"
                                             value={manualForm.title}
                                             onChange={(e) => handleManualInputChange("title", e.target.value)}
@@ -1084,15 +1084,6 @@ Click "Create Test" when ready.`);
                                         <Download className="h-4 w-4 mr-2" />
                                         Download Template
                                     </Button>
-                                    {importPreview.length > 0 && (
-                                        <Button
-                                            onClick={processImportedData}
-                                            className="flex-1"
-                                        >
-                                            <CheckCircle className="h-4 w-4 mr-2" />
-                                            Import {importPreview.length} Questions
-                                        </Button>
-                                    )}
                                 </div>
 
                                 {/* Preview Section */}
@@ -1163,34 +1154,54 @@ Click "Create Test" when ready.`);
                                         </div>
                                     </div>
                                 )}
+                                {
+                                    activeTab === 'import' && (
+                                        importPreview.length > 0 && (
+                                            <div className="flex space-x-2">
+                                                <Button
+                                                    onClick={processImportedData}
+                                                    className="flex-1"
+                                                >
+                                                    <CheckCircle className="h-4 w-4 mr-2" />
+                                                    Import {importPreview.length} Questions
+                                                </Button>
+                                            </div>
+                                        ))
+                                }
                             </CardContent>
                         </Card>
                     </TabsContent>
                 </Tabs>
+                {
+                    activeTab === 'manual' && (
 
-                <div className="mt-6 flex justify-end space-x-3">
-                    <Button
-                        variant="outline"
-                        onClick={() => navigate("/admin")}
-                        disabled={loading}
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        onClick={handleSubmit}
-                        disabled={loading || questions.length === 0}
-                        className="min-w-[120px]"
-                    >
-                        {loading ? (
-                            <>
-                                <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
-                                Creating...
-                            </>
-                        ) : (
-                            "Create Test"
-                        )}
-                    </Button>
-                </div>
+                        <div className="mt-6 flex justify-end space-x-3">
+                            <Button
+                                variant="outline"
+                                onClick={() => navigate("/admin")}
+                                disabled={loading}
+                            >
+                                Cancel
+                            </Button>
+                            <Button
+                                onClick={handleSubmit}
+                                disabled={loading || questions.length === 0}
+                                className="min-w-[120px]"
+                            >
+                                {loading ? (
+                                    <>
+                                        <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-white mr-2"></div>
+                                        Creating...
+                                    </>
+                                ) : (
+                                    "Create Test"
+                                )}
+                            </Button>
+                        </div>
+
+                    )
+                }
+
             </div>
         </div>
     );

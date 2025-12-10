@@ -169,11 +169,11 @@ const Dashboard = () => {
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Welcome back{user?.student?.fullName ? `, ${user.student.fullName}` : '!'}</h1>
           <p className="text-muted-foreground">
-            {!user?.profileCompleted 
+            {!user?.student.profileCompleted 
               ? "Complete your profile to get personalized recommendations"
               : "Ready to continue your test preparation journey?"}
           </p>
-          {!user?.profileCompleted && (
+          {!user?.student.profileCompleted && (
             <Button 
               variant="outline" 
               className="mt-2"

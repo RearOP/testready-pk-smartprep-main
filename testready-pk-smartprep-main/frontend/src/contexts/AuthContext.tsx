@@ -36,6 +36,8 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           const response = await apiClient.getMe();
           if (response.success) {
             setUser(response.data.user);
+            // console.log(response.data.user);
+            
           } else {
             // Clear invalid token
             await apiClient.logout();

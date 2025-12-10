@@ -1,3 +1,4 @@
+// studentController.ts
 import { Request, Response } from 'express';
 import { body, validationResult } from 'express-validator';
 import { PrismaClient } from '@prisma/client';
@@ -223,8 +224,10 @@ export const updateProfile = async (req: Request, res: Response): Promise<Respon
 
 // Get student progress
 export const getProgress = async (req: Request, res: Response): Promise<Response> => {
+  // console.log('getProgress called')
   try {
     const userId = (req as any).user.id;
+    // console.log('User ID:', userId);
 
     const student = await prisma.student.findUnique({
       where: { userId },
@@ -256,10 +259,10 @@ export const getProgress = async (req: Request, res: Response): Promise<Response
     // Calculate statistics
     const totalTests = student.testAttempts.length;
     const completedTests = student.testAttempts.filter(attempt => attempt.status === 'COMPLETED');
-    const averageScore = completedTests.length > 0 
-      ? completedTests.reduce((sum, attempt) => sum + (attempt.percentage || 0), 0) / completedTests.length 
+    const averageScore = completedTests.length > 0
+      ? completedTests.reduce((sum, attempt) => sum + (attempt.percentage || 0), 0) / completedTests.length
       : 0;
-    const bestScore = completedTests.length > 0 
+    const bestScore = completedTests.length > 0
       ? Math.max(...completedTests.map(attempt => attempt.percentage || 0))
       : 0;
 
@@ -276,8 +279,8 @@ export const getProgress = async (req: Request, res: Response): Promise<Response
     // Progress over time (last 30 days)
     const thirtyDaysAgo = new Date();
     thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
-    
-    const recentAttempts = completedTests.filter(attempt => 
+
+    const recentAttempts = completedTests.filter(attempt =>
       attempt.finishedAt && attempt.finishedAt >= thirtyDaysAgo
     );
 

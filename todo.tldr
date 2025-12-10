@@ -36,9 +36,9 @@
 		{
 			"id": "pointer:pointer",
 			"typeName": "pointer",
-			"x": 984.140625,
-			"y": 290.28125,
-			"lastActivityTimestamp": 1765376200178,
+			"x": 923.0703125,
+			"y": 364.28125,
+			"lastActivityTimestamp": 1765392326493,
 			"meta": {}
 		},
 		{
@@ -53,7 +53,7 @@
 			"props": {
 				"color": "black",
 				"size": "m",
-				"w": 369.28125,
+				"w": 880.125,
 				"font": "draw",
 				"textAlign": "start",
 				"autoSize": true,
@@ -113,6 +113,23 @@
 											]
 										}
 									]
+								},
+								{
+									"type": "listItem",
+									"content": [
+										{
+											"type": "paragraph",
+											"attrs": {
+												"dir": "auto"
+											},
+											"content": [
+												{
+													"type": "text",
+													"text": "if user class Grade is Fsc show only fsc Tests and so on for others"
+												}
+											]
+										}
+									]
 								}
 							]
 						},
@@ -130,7 +147,7 @@
 			"typeName": "shape"
 		},
 		{
-			"x": 79.859375,
+			"x": 41.9296875,
 			"y": 169.71875,
 			"z": 1,
 			"meta": {},
@@ -138,7 +155,7 @@
 			"typeName": "camera"
 		},
 		{
-			"editingShapeId": null,
+			"editingShapeId": "shape:sWgF65qw5q13btr8IKF8o",
 			"croppingShapeId": null,
 			"selectedShapeIds": [
 				"shape:sWgF65qw5q13btr8IKF8o"
@@ -509,14 +526,11 @@
 		{
 			"followingUserId": null,
 			"opacityForNextShape": 1,
-			"stylesForNextShape": {
-				"tldraw:color": "green",
-				"tldraw:size": "s"
-			},
+			"stylesForNextShape": {},
 			"brush": null,
 			"scribbles": [],
 			"cursor": {
-				"type": "cross",
+				"type": "default",
 				"rotation": 0
 			},
 			"isFocusMode": false,

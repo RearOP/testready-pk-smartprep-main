@@ -264,6 +264,7 @@ class ApiClient {
     });
   }
 
+  // In api.ts, simplify to one endpoint
   async getProgress(): Promise<ApiResponse<{
     statistics: {
       totalTests: number;
@@ -274,35 +275,16 @@ class ApiClient {
     recentTests: any[];
     progressData: any[];
   }>> {
-    // Try different endpoint patterns
-    try {
-      return await this.request<ApiResponse<{
-        statistics: {
-          totalTests: number;
-          completedTests: number;
-          averageScore: number;
-          bestScore: number;
-        };
-        recentTests: any[];
-        progressData: any[];
-      }>>('/student/progress', {
-        method: 'GET',
-      });
-    } catch (error) {
-      // Fallback to another endpoint pattern
-      return await this.request<ApiResponse<{
-        statistics: {
-          totalTests: number;
-          completedTests: number;
-          averageScore: number;
-          bestScore: number;
-        };
-        recentTests: any[];
-        progressData: any[];
-      }>>('/students/progress', {
-        method: 'GET',
-      });
-    }
+    return this.request<ApiResponse<{
+      statistics: {
+        totalTests: number;
+        completedTests: number;
+        averageScore: number;
+        bestScore: number;
+      };
+      recentTests: any[];
+      progressData: any[];
+    }>>('/students/progress'); // Try plural form
   }
 
   // Test endpoints
