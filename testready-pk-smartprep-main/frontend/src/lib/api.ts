@@ -351,6 +351,7 @@ class ApiClient {
       totalAttempts: number;
       completedAttempts: number;
       averageScore: number;
+      // totalMarks: number;
     };
     recentStudents: any[];
     recentAttempts: any[];
@@ -362,6 +363,7 @@ class ApiClient {
         totalAttempts: number;
         completedAttempts: number;
         averageScore: number;
+        // totalMarks: number;
       };
       recentStudents: any[];
       recentAttempts: any[];

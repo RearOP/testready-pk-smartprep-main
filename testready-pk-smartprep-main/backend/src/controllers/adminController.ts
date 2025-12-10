@@ -69,7 +69,8 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
           },
           test: {
             select: {
-              title: true
+              title: true,
+              totalMarks:true,
             }
           }
         }
@@ -100,6 +101,7 @@ export const getDashboardStats = async (req: Request, res: Response): Promise<Re
           schoolName: attempt.student.schoolName,
           testTitle: attempt.test.title,
           score: attempt.score,
+          totalMarks: attempt.totalMarks,
           percentage: attempt.percentage,
           completedAt: attempt.finishedAt
         }))
@@ -330,7 +332,7 @@ export const getTestsSingle = async (req: Request, res: Response): Promise<Respo
       where: {
         id: req.params.testId
       }
-      
+
     });
 
     return res.json({

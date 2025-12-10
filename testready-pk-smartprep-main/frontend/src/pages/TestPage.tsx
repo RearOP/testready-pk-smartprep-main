@@ -39,7 +39,7 @@ const TestPage = () => {
   const location = useLocation();
   const attemptId = location.state?.attemptId;
 
-  const [test, setTest] = useState<Test | null>(null);
+  const [test, setTest] = useState(null);
   const [currentQuestion, setCurrentQuestion] = useState(0);
   const [selectedAnswer, setSelectedAnswer] = useState<string | null>(null);
   const [answers, setAnswers] = useState<{[key: string]: string}>({});
