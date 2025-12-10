@@ -9,7 +9,8 @@ import {
   deleteTest,
   exportStudents,
   importStudents,
-  createTestValidation
+  createTestValidation,
+  getTestsSingle
 } from '../controllers/adminController';
 import { authenticate, authorize } from '../middleware/auth';
 import { validateRequest } from '../middleware/validation';
@@ -31,6 +32,7 @@ router.post('/students/import', multer({ dest: 'uploads/' }).single('csv'), impo
 
 // Test management - FIXED ROUTES
 router.get('/tests', getTests);
+router.get('/tests/:testId', getTestsSingle);
 router.post('/tests', createTestValidation, validateRequest, createTest); // Changed from /Createtests to /tests
 router.put('/tests/:testId', updateTest);
 router.delete('/tests/:testId', deleteTest);

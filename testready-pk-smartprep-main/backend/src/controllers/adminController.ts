@@ -307,27 +307,132 @@ export const getTests = async (req: Request, res: Response): Promise<Response> =
   }
 };
 
+export const getTestsSingle = async (req: Request, res: Response): Promise<Response> => {
+  try {
+    const tests = await prisma.test.findUnique({
+      include: {
+        questions: {
+          select: {
+            id: true,
+            text: true,
+            options: true,      // Add this
+            correctAnswer: true, // Add this
+            marks: true,
+            explanation: true   // Add this
+          }
+        },
+        _count: {
+          select: {
+            attempts: true
+          }
+        }
+      },
+      where: {
+        id: req.params.testId
+      }
+      
+    });
+
+    return res.json({
+      success: true,
+      data: { tests }
+    });
+  } catch (error) {
+    console.error('Get tests error:', error);
+    return res.status(500).json({
+      success: false,
+      message: 'Internal server error'
+    });
+  }
+}
+
 // Update test
 export const updateTest = async (req: Request, res: Response): Promise<Response> => {
   try {
-    const { testId } = req.params;
-    const { title, description, totalMarks, timeLimit, isActive } = req.body;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      return res.status(400).json({
+        success: false,
+        message: 'Validation failed',
+        errors: errors.array()
+      });
+    }
 
-    const test = await prisma.test.update({
+    const { title, description, totalMarks, timeLimit, isActive, questions } = req.body;
+    const testId = req.params.testId;
+
+    // First, get the existing test
+    const existingTest = await prisma.test.findUnique({
       where: { id: testId },
-      data: {
-        title,
-        description,
-        totalMarks: totalMarks ? parseInt(totalMarks) : undefined,
-        timeLimit: timeLimit ? parseInt(timeLimit) : undefined,
-        isActive
+      include: { questions: true }
+    });
+
+    if (!existingTest) {
+      return res.status(404).json({
+        success: false,
+        message: 'Test not found'
+      });
+    }
+
+    // Prepare update data
+    const updateData: any = {};
+
+    if (title !== undefined) updateData.title = title;
+    if (description !== undefined) updateData.description = description;
+    if (timeLimit !== undefined) updateData.timeLimit = parseInt(timeLimit);
+    if (isActive !== undefined) updateData.isActive = isActive;
+
+    // Calculate totalMarks from questions if provided, otherwise use provided value or existing
+    let calculatedTotalMarks = existingTest.totalMarks;
+    if (questions && Array.isArray(questions)) {
+      calculatedTotalMarks = questions.reduce((sum, q) => sum + (parseInt(q.marks) || 1), 0);
+    } else if (totalMarks !== undefined) {
+      calculatedTotalMarks = parseInt(totalMarks);
+    }
+    updateData.totalMarks = calculatedTotalMarks;
+
+    // Start a transaction to update test and questions
+    const result = await prisma.$transaction(async (tx) => {
+      // Update the test
+      const updatedTest = await tx.test.update({
+        where: { id: testId },
+        data: updateData,
+        include: { questions: true }
+      });
+
+      // Update questions if provided
+      if (questions && Array.isArray(questions)) {
+        // Delete existing questions
+        await tx.question.deleteMany({
+          where: { testId }
+        });
+
+        // Create new questions
+        const createdQuestions = await Promise.all(
+          questions.map(async (q: any) => {
+            return await tx.question.create({
+              data: {
+                testId,
+                text: q.text,
+                options: q.options || [],
+                correctAnswer: q.correctAnswer,
+                marks: parseInt(q.marks) || 1,
+                explanation: q.explanation
+              }
+            });
+          })
+        );
+
+        updatedTest.questions = createdQuestions;
       }
+
+      return updatedTest;
     });
 
     return res.json({
       success: true,
       message: 'Test updated successfully',
-      data: { test }
+      data: { test: result }
     });
   } catch (error) {
     console.error('Update test error:', error);

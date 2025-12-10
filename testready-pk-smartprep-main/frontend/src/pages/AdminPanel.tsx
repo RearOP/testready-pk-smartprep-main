@@ -191,7 +191,7 @@ const AdminPanel = () => {
         <Card className="mt-8">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Tests Management</CardTitle>
-            <Link to="/createTest">
+            <Link to="/createtest">
               <Button>
                 <Plus className="h-4 w-4 mr-2" />
                 Create Test
@@ -215,11 +215,11 @@ const AdminPanel = () => {
                     <span>{Math.floor(test.timeLimit / 60)} min</span>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => navigate(`/admin/tests/edit/${test.id}`)} >
                       <Settings className="h-4 w-4 mr-1" />
                       Edit
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1">
+                    <Button onClick={() => navigate(`/admin/tests/view/${test.id}`)} variant="outline" size="sm" className="flex-1">
                       View
                     </Button>
                   </div>

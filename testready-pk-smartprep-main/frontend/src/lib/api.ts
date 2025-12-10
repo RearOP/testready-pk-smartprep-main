@@ -439,12 +439,26 @@ class ApiClient {
     return this.request<ApiResponse<{ tests: Test[] }>>('/admin/tests');
   }
 
+  async getTestsSingle(testId: string): Promise<ApiResponse<{ tests: Test }>> {
+    return this.request<ApiResponse<{ tests: Test }>>(`/admin/tests/${testId}`);
+  }
+
+
+  // In api.ts, update the updateTest method signature:
   async updateTest(testId: string, data: {
     title?: string;
     description?: string;
     totalMarks?: number;
     timeLimit?: number;
     isActive?: boolean;
+    questions?: Array<{
+      id?: string;
+      text: string;
+      options: Array<{ id: string; text: string }>;
+      correctAnswer: string;
+      marks: number;
+      explanation?: string;
+    }>;
   }): Promise<ApiResponse<{ test: Test }>> {
     return this.request<ApiResponse<{ test: Test }>>(`/admin/tests/${testId}`, {
       method: 'PUT',

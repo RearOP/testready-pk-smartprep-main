@@ -15,7 +15,9 @@ import Profile from "./pages/Profile";
 import Test from "./pages/Test";
 import NotFound from "./pages/NotFound";
 import AdminPanel from "./pages/AdminPanel";
+import ViewTest from "./pages/ViewTest";
 import CreateTest from "./pages/CreateTest";
+import EditTest from "./pages/EditTest";
 
 const queryClient = new QueryClient();
 
@@ -33,7 +35,9 @@ const App = () => (
             <Route path="/profile-complete" element={<ProfileComplete />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/admin" element={<AdminPanel />} />
-            <Route path="/createTest" element={<CreateTest />} />
+            <Route path="/admin/tests/view/:testId" element={<ViewTest />} />
+            <Route path="/admin/tests/edit/:testId" element={<EditTest />} />
+            <Route path="/createtest" element={<CreateTest />} />
             <Route path="/profile" element={<Profile />} />
             <Route path="/test/:testId" element={<TestPage />} />
             <Route path="/test-result" element={<TestResult />} />
